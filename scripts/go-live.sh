@@ -38,8 +38,12 @@ if ! curl -s -o /dev/null --max-time 2 "$API/v3/paths/list"; then
   die "relay is not running. Start it with:  launchctl kickstart -k gui/\$(id -u)/com.example.streaming-relay"
 fi
 
-# Load saved keys if present
-[ -f "$KEYS_FILE" ] && . "$KEYS_FILE"
+# Load saved keys if present. NOT sourced -- the loader parses the
+# file as data instead of running it as shell.
+if [ -f "$KEYS_FILE" ]; then
+  # shellcheck disable=SC1091
+  . "$DIR/../tools/load-env.sh" "$KEYS_FILE"
+fi
 
 # --- platform table (kept in sync with dry-run.sh) -------------------------
 # name|path|url|keyvar

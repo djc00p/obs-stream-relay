@@ -186,11 +186,24 @@ KICK_KEY="sk_<region>_<token>"
 IG_KEY="1193042257001228?s_bl=1&s_fbp=dfw5-3&..."
 ```
 
-**Always quote the values.** The scripts source this file with `.`, so
-the values are parsed as shell. An Instagram key contains `&`
-characters, and an unquoted `&` backgrounds the command and silently
-drops the variable — which looks like a *missing* key rather than a
-quoting bug.
+**Always quote the values.** The scripts parse this file with a
+loader (`tools/load-env.sh`) that reads it as *data* rather than
+running it as shell. An Instagram key contains `&` characters, and an
+unquoted `&` would be ambiguous to any reader — quote it so the value
+is unambiguous.
+
+The loader is deliberately not a shell `source`:
+
+- A `KEY=$(rm -rf ...)` line in this file would **execute** if the
+  scripts sourced it. With the loader it is just a string.
+- A value is never expanded. `TOKEN="$HOME"` loads the literal
+  `$HOME`, not your home directory.
+- A malformed line is reported and skipped, not silently accepted.
+
+The loader accepts `KEY=value`, `KEY="value"`, and `KEY='value'`. One
+layer of matching quotes is stripped. Lines that are not `KEY=VALUE`,
+and keys that are not valid identifiers, are skipped with a message
+naming the line number.
 
 Keep the file at mode `600`:
 

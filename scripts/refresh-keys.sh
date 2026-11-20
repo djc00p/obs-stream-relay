@@ -43,8 +43,9 @@ ok()    { echo "${GREEN}  ✓${NC} $*"; }
 head2() { echo; echo "${BOLD}$1${NC}"; }
 
 [ -f "$KEYS_FILE" ] || { echo "${RED}error:${NC} no $KEYS_FILE"; exit 1; }
-# shellcheck disable=SC1090
-. "$KEYS_FILE"
+# Parse the key file as data -- do not source it.
+# shellcheck disable=SC1091
+. "$DIR/../tools/load-env.sh" "$KEYS_FILE"
 
 if ! curl -s -o /dev/null --max-time 2 "$API/v3/paths/list"; then
   echo "${RED}error:${NC} relay is not running."

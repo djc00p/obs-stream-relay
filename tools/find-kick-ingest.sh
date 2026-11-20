@@ -25,8 +25,9 @@ GREEN=$'\033[32m'; RED=$'\033[31m'; YELLOW=$'\033[33m'; BOLD=$'\033[1m'; DIM=$'\
 
 KEY="${1:-}"
 if [ -z "$KEY" ] && [ -f "$KEYS_FILE" ]; then
-  # shellcheck disable=SC1090
-  . "$KEYS_FILE"
+  # Parse the key file as data -- do not source it.
+  # shellcheck disable=SC1091
+  . "$DIR/../tools/load-env.sh" "$KEYS_FILE"
   KEY="${KICK_KEY:-}"
 fi
 

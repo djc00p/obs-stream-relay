@@ -99,11 +99,14 @@ KICK_KEY="sk_<region>_<token>"
 IG_KEY="1193042257001228?s_bl=1&s_fbp=dfw5-3&..."
 ```
 
-**Always quote the values.** The scripts source this file with `.`, so
-the values are parsed as shell. An Instagram key contains `&`
-characters, and an unquoted `&` backgrounds the command and silently
-drops the variable — which looks like a *missing* key rather than a
-quoting bug.
+**Always quote the values.** The scripts parse this file with a
+loader (`tools/load-env.sh`) that reads it as *data*, not as shell. An
+Instagram key contains `&` characters, and quoting keeps the value
+unambiguous.
+
+The loader does not execute the file, does not expand `$VAR` inside a
+value, and reports any line it cannot parse. See
+[GET-KEYS.md](GET-KEYS.md) for the details.
 
 **Check:**
 

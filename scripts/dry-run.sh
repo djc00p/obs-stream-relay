@@ -39,8 +39,10 @@ warn()  { echo "${YELLOW}  !${NC} $*"; WARNINGS=$((WARNINGS+1)); }
 head2() { echo; echo "${BOLD}$1${NC}"; }
 
 [ -f "$KEYS_FILE" ] || { echo "${RED}error:${NC} no $KEYS_FILE"; exit 1; }
-# shellcheck disable=SC1090
-. "$KEYS_FILE"
+# Load the key file WITHOUT executing it. Sourcing it would run
+# whatever is in it as shell.
+# shellcheck disable=SC1091
+. "$DIR/../tools/load-env.sh" "$KEYS_FILE"
 
 REQUIRE_ALL=0
 [ "${1:-}" = "--all" ] && REQUIRE_ALL=1
@@ -89,8 +91,8 @@ for arg in "$@"; do
 done
 # A SKIP_PLATFORMS var in the env file also works.
 if [ -f "$KEYS_FILE" ]; then
-  # shellcheck disable=SC1090
-  . "$KEYS_FILE"
+  # shellcheck disable=SC1091
+  . "$DIR/../tools/load-env.sh" "$KEYS_FILE"
   [ -n "${SKIP_PLATFORMS:-}" ] && SKIP_LIST="${SKIP_LIST:+$SKIP_LIST,}${SKIP_PLATFORMS}"
 fi
 SKIP_LIST="${SKIP_LIST//,/ }"
