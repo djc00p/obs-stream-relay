@@ -1,0 +1,24 @@
+# Live credentials -- never commit these.
+stream-keys.env
+stream-meta.env
+stream-keys.env.backup-*
+stream-meta.env.backup-*
+
+# Generated at runtime.
+mediamtx.log
+mediamtx.err.log
+mediamtx.pid
+mediamtx
+mediamtx.tar.gz
+checksums.txt
+
+# Recording output.
+recordings/
+test-out/
+
+# TLS material, if you enable HTTPS.
+auto.crt
+auto.key
+
+# macOS.
+.DS_Store

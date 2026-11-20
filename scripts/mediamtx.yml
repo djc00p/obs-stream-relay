@@ -1,0 +1,109 @@
+# =============================================================================
+# Local multistream relay.
+# Replaces Restream.io distribution. Nothing here touches your OBS config yet.
+#
+#   OBS (Aitum outputs) --> rtmp://127.0.0.1:1935/land   (1920x1080)
+#                       --> rtmp://127.0.0.1:1935/vert   (1080x1920)
+#                                  |
+#                            MediaMTX fans out
+#                                  |
+#        +-------------------------+-------------------------+
+#        |                                                   |
+#   land path forwards                                 vert path forwards
+#   - YouTube (landscape key)                           - YouTube (portrait key)
+#   - Twitch                                            - TikTok    (key rotates)
+#   - Kick                                              - Instagram (key rotates)
+#
+# Runtime key rotation (TikTok / Instagram) -- no restart, no stream drop:
+#   ./relay.sh add-forward vert "rtmps://.../live" "streamkey"
+#   ./relay.sh list
+#
+# Docs: ~/.openclaw/workspace/docs/streaming/local-multistream-architecture.md
+# =============================================================================
+
+logLevel: info
+logDestinations: [stdout]
+
+# Control API -- used by relay.sh to patch forward targets at runtime
+api: yes
+apiAddress: 127.0.0.1:9997
+apiAllowOrigins: []
+
+# RTMP ingest (OBS publishes here).
+# rtmpEncryption controls RTMPS too: "no" = plain RTMP only (port 1935),
+# "optional" = both (1935 plain, 1936 RTMPS), "strict" = RTMPS only.
+rtmp: yes
+rtmpAddress: :1935
+rtmpEncryption: "no"
+
+# RTSP ingest (optional fallback / testing)
+rtsp: yes
+rtspAddress: :8554
+rtspTransports: [udp, multicast, tcp]
+
+# HLS out (optional -- lets you watch the relay in a browser to verify)
+hls: yes
+hlsAddress: :8888
+hlsAlwaysRemux: yes
+
+# WebRTC out (optional -- low-latency preview in a browser)
+webrtc: yes
+webrtcAddress: :8889
+webrtcAllowOrigins: ['http://127.0.0.1:8888', 'http://localhost:8888']
+
+# SRT
+srt: yes
+srtAddress: :8890
+
+# -----------------------------------------------------------------------------
+# Default path settings
+# -----------------------------------------------------------------------------
+paths:
+  all_others:
+
+  # ---- LANDSCAPE (1920x1080) : YouTube, Twitch, Kick -----------------------
+  #
+  # NOTE the leading "~" -- in MediaMTX a path name starting with "~" is a
+  # REGULAR EXPRESSION, not a literal name. This is required because Aitum
+  # appends the stream key as a path segment:
+  #     server rtmp://127.0.0.1:1935/land  +  key "land"  =>  path "land/land"
+  #     server rtmp://127.0.0.1:1935/vert  +  key "vert"  =>  path "vert/vert"
+  # The regex below matches any path starting with "land", so it catches
+  # land, land/land, land/anything.
+  #
+  # (internal/conf/path.go: name[0] == '~' -> regular expression path)
+  "~^land(/.*)?$":
+    source: publisher
+    sourceOnDemand: false
+    # Forward destinations are managed at runtime via the Control API.
+    # Start empty -- relay.sh add-forward populates them.
+    forward: []
+
+  # ---- PORTRAIT (1080x1920) : YouTube portrait, TikTok, Instagram ---------
+  "~^vert(/.*)?$":
+    source: publisher
+    sourceOnDemand: false
+    forward: []
+
+# -----------------------------------------------------------------------------
+# Authentication (per-path). Empty for now = open on localhost only.
+# MediaMTX binds to :1935 on ALL interfaces by default -- see the note below.
+# -----------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------
+# IMPORTANT: network exposure
+#
+# The default `rtmpAddress: :1935` binds to ALL interfaces, which would make
+# your relay reachable by anyone on your LAN / the internet if you have an open
+# port. For a laptop-only setup, bind to loopback instead:
+#
+#   rtmpAddress: 127.0.0.1:1935
+#
+# Uncomment below for the safe version. 127.0.0.1 works fine -- OBS and
+# relay.sh both run on this machine.
+# -----------------------------------------------------------------------------
+# rtmpAddress: 127.0.0.1:1935
+# rtspAddress: 127.0.0.1:8554
+# hlsAddress: 127.0.0.1:8888
+# webrtcAddress: 127.0.0.1:8889
+# srtAddress: 127.0.0.1:8890
