@@ -15,7 +15,7 @@ set -uo pipefail
 
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API="http://127.0.0.1:9997"
-TOOLS="$DIR/tools"
+TOOLS="$DIR/../tools"
 
 GREEN=$'\033[32m'; RED=$'\033[31m'; YELLOW=$'\033[33m'; BOLD=$'\033[1m'; NC=$'\033[0m'
 FAILED=0

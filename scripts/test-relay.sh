@@ -18,7 +18,7 @@ set -uo pipefail
 DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 API="http://127.0.0.1:9997"
 OUT="$DIR/test-out"
-TOOLS="$DIR/tools"
+TOOLS="$DIR/../tools"
 mkdir -p "$OUT"
 
 GREEN=$'\033[32m'; RED=$'\033[31m'; BOLD=$'\033[1m'; NC=$'\033[0m'

@@ -62,7 +62,22 @@ record_one() {
 
   # -t before -i would cut on input timestamps; -t after -i is right for a
   # live stream. We copy video/audio (no re-encode) so it is fast and lossless.
-  if ffmpeg -hide_banner -loglevel error -stats \
+  #
+  # Resolve ffmpeg to an absolute path. launchd does NOT load the shell
+  # profile, so PATH may not include Homebrew.
+  local ffmpeg_bin
+  ffmpeg_bin="$(command -v ffmpeg || true)"
+  if [ -z "$ffmpeg_bin" ]; then
+    for cand in /opt/homebrew/bin/ffmpeg /usr/local/bin/ffmpeg /usr/bin/ffmpeg; do
+      if [ -x "$cand" ]; then ffmpeg_bin="$cand"; break; fi
+    done
+  fi
+  if [ -z "$ffmpeg_bin" ]; then
+    bad "ffmpeg not found (not on PATH, and not in the usual locations)"
+    return 1
+  fi
+
+  if "$ffmpeg_bin" -hide_banner -loglevel error -stats \
         -i "$src" \
         -t "$SECONDS_TO_RECORD" \
         -c copy -movflags +faststart \
