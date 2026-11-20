@@ -96,8 +96,8 @@ if [ -n "$FOUND" ]; then
   echo "${GREEN}${BOLD}  WORKING KICK INGEST URL: $FOUND${NC}"
   echo
   echo "  Update the relay with:"
-  echo "    cd <your relay directory>"
-  echo "    ./scripts/relay.sh add-forward land \"$FOUND\" \"\$KICK_KEY\""
+  echo "    cd ~/Streaming-Relay"
+  echo "    ./relay.sh add-forward land \"$FOUND\" \"\$KICK_KEY\""
   exit 0
 else
   echo "${RED}${BOLD}  No candidate URL was accepted.${NC}"

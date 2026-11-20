@@ -1,0 +1,208 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Relay Preview — Aitum → MediaMTX</title>
+<style>
+  :root { color-scheme: dark; }
+  body {
+    margin: 0; padding: 24px; background: #14161a; color: #e8eaed;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  }
+  h1 { font-size: 17px; font-weight: 600; margin: 0 0 4px; }
+  p.sub { margin: 0 0 24px; color: #9aa0a6; font-size: 13px; }
+  .grid { display: flex; gap: 20px; flex-wrap: wrap; align-items: flex-start; }
+  .clips { margin-top: 28px; }
+  .clips h2 { font-size: 13px; font-weight: 600; text-transform: uppercase;
+              letter-spacing: .06em; color: #9aa0a6; margin: 0 0 10px; }
+  .clips ul { list-style: none; margin: 0; padding: 0; }
+  .clips li { margin-bottom: 6px; }
+  .clips a { color: #8ab4f8; text-decoration: none; font-size: 13px;
+             font-family: ui-monospace, Menlo, monospace; }
+  .clips a:hover { text-decoration: underline; }
+  .clips .sz { color: #6b7075; font-size: 12px; margin-left: 8px; }
+  .card { background: #1e2126; border: 1px solid #2f3339; border-radius: 10px; padding: 14px; }
+  .card h2 { font-size: 13px; font-weight: 600; margin: 0 0 4px; text-transform: uppercase;
+             letter-spacing: .06em; color: #9aa0a6; }
+  .dims { font-size: 12px; color: #9aa0a6; margin-bottom: 10px; font-variant-numeric: tabular-nums; }
+  video { display: block; background: #000; border-radius: 6px; max-width: 100%; }
+  #land { width: 640px; }
+  #vert { width: 320px; }
+  .status { margin-top: 10px; font-size: 12px; font-family: ui-monospace, Menlo, monospace; }
+  .ok { color: #4ade80; }
+  .bad { color: #f87171; }
+  .rec {
+    margin-top: 10px; display: inline-flex; align-items: center; gap: 7px;
+    background: #2a1f22; border: 1px solid #4a2b30; color: #ff9d9d;
+    border-radius: 6px; padding: 6px 11px; font-size: 12px; font-weight: 600;
+    cursor: pointer; font-family: inherit;
+  }
+  .rec:hover { background: #3a262b; }
+  .rec:disabled { opacity: .5; cursor: default; }
+  .rec .dot { width: 9px; height: 9px; border-radius: 50%; background: #ef4444; }
+  .rec.working .dot { animation: pulse 1s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+  code { background: #262a30; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+</style>
+</head>
+<body>
+  <h1>Relay Preview</h1>
+  <p class="sub">
+    Local preview of the MediaMTX relay. Both streams are read-only &mdash;
+    nothing here posts to any platform.
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <h2>Landscape</h2>
+      <div class="dims" id="land-dims">1920&times;1080</div>
+      <video id="land" controls muted autoplay playsinline></video>
+      <div class="status" id="land-status">connecting&hellip;</div>
+      <button class="rec" id="rec-land"><span class="dot"></span> Record 10s clip</button>
+    </div>
+
+    <div class="card">
+      <h2>Portrait</h2>
+      <div class="dims" id="vert-dims">1080&times;1920</div>
+      <video id="vert" controls muted autoplay playsinline></video>
+      <div class="status" id="vert-status">connecting&hellip;</div>
+      <button class="rec" id="rec-vert"><span class="dot"></span> Record 10s clip</button>
+    </div>
+  </div>
+
+  <div class="clips">
+    <h2>Recent clips</h2>
+    <ul id="clip-list"><li><span class="sz">loading…</span></li></ul>
+  </div>
+
+<script src="/hls.min.js"></script>
+<script>
+  const RELAY = "http://127.0.0.1:8888";
+  const CK = "?cookieCheck=1";
+
+  function attach(videoId, statusId, path, label) {
+    const video = document.getElementById(videoId);
+    const status = document.getElementById(statusId);
+    if (!path) {
+      status.textContent = "not publishing";
+      status.className = "status bad";
+      return;
+    }
+    const url = RELAY + "/" + path + "/index.m3u8" + CK;
+    const set = (msg, ok) => {
+      status.textContent = msg;
+      status.className = "status " + (ok ? "ok" : "bad");
+    };
+    video.addEventListener("error", () => set("stream error — is OBS still publishing?", false));
+    video.addEventListener("playing", () => set("live", true));
+
+    if (window.Hls && Hls.isSupported()) {
+      const hls = new Hls({ liveSyncDurationCount: 2, lowLatencyMode: true });
+      hls.on(Hls.Events.ERROR, (e, data) => {
+        if (data.fatal) set("hls error: " + data.details, false);
+      });
+      hls.loadSource(url);
+      hls.attachMedia(video);
+      hls.on(Hls.Events.MANIFEST_PARSED, () => set("live", true));
+    } else if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      video.src = url;
+      video.play().catch(() => set("autoplay blocked — press play", false));
+    } else {
+      set("no HLS support in this browser", false);
+    }
+  }
+
+  function load() {
+    return fetch("/paths.json?t=" + Date.now())
+      .then(r => r.json())
+      .then(info => {
+        document.getElementById("land-dims").textContent = info.landDims || "—";
+        document.getElementById("vert-dims").textContent = info.vertDims || "—";
+        attach("land", "land-status", info.land, "land");
+        attach("vert", "vert-status", info.vert, "vert");
+      });
+  }
+
+  // --- recording -----------------------------------------------------------
+  function setupRecord(btnId, base) {
+    const btn = document.getElementById(btnId);
+    btn.addEventListener("click", () => {
+      btn.disabled = true;
+      btn.classList.add("working");
+      const original = btn.innerHTML;
+      btn.innerHTML = '<span class="dot"></span> Recording…';
+
+      fetch("/record/" + base, { method: "POST" })
+        .then(r => r.json())
+        .then(res => {
+          if (res.ok) {
+            const size = (res.message.split("/").pop());
+            btn.innerHTML = '<span class="dot"></span> Saved ✓';
+            btn.title = res.message;
+            setTimeout(() => { btn.innerHTML = original; }, 4000);
+          } else {
+            btn.innerHTML = '<span class="dot"></span> Failed — ' + res.message;
+            btn.title = res.message;
+            setTimeout(() => { btn.innerHTML = original; }, 6000);
+          }
+        })
+        .catch(err => {
+          btn.innerHTML = '<span class="dot"></span> Error';
+          setTimeout(() => { btn.innerHTML = original; }, 5000);
+        })
+        .finally(() => {
+          btn.disabled = false;
+          btn.classList.remove("working");
+        });
+    });
+  }
+
+  setupRecord("rec-land", "land");
+  setupRecord("rec-vert", "vert");
+
+  function loadClips() {
+    return fetch("/clips?t=" + Date.now())
+      .then(r => r.json())
+      .then(data => {
+        const ul = document.getElementById("clip-list");
+        ul.innerHTML = "";
+        if (!data.clips || !data.clips.length) {
+          ul.innerHTML = '<li><span class="sz">no clips yet</span></li>';
+          return;
+        }
+        data.clips.forEach(c => {
+          const li = document.createElement("li");
+          const a = document.createElement("a");
+          a.href = c.url;
+          a.textContent = c.name;
+          a.target = "_blank";
+          const sz = document.createElement("span");
+          sz.className = "sz";
+          sz.textContent = (c.size / 1048576).toFixed(1) + " MB";
+          li.appendChild(a);
+          li.appendChild(sz);
+          ul.appendChild(li);
+        });
+      })
+      .catch(() => {
+        document.getElementById("clip-list").innerHTML =
+          '<li><span class="sz">could not load clips</span></li>';
+      });
+  }
+
+  loadClips();
+  setInterval(loadClips, 15000);
+
+  load()
+    .catch(() => {
+      document.getElementById("land-status").textContent = "could not load paths.json";
+      document.getElementById("land-status").className = "status bad";
+    });
+
+  // Refresh the path info every 10s so the page tracks the relay if an
+  // output starts or stops.
+  setInterval(() => { load().catch(() => {}); }, 10000);
+</script>
+</body>
+</html>

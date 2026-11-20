@@ -181,8 +181,8 @@ Edit `stream-keys.env`:
 ```bash
 YT_LAND_KEY="xxxx-xxxx-xxxx-xxxx-xxxx"
 YT_VERT_KEY="xxxx-xxxx-xxxx-xxxx-xxxx"
-TWITCH_KEY="live_00000000_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-KICK_KEY="sk_us-west-2_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+TWITCH_KEY="live_<user_id>_<token>"
+KICK_KEY="sk_<region>_<token>"
 IG_KEY="1193042257001228?s_bl=1&s_fbp=dfw5-3&..."
 ```
 
