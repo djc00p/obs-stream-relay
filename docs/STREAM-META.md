@@ -292,14 +292,45 @@ Other diagnostics:
 
 ---
 
-## Refreshing an expired token
+## Token expiry and refresh
+
+Both OAuth access tokens are short-lived:
+
+| Platform | Access token | Refresh token |
+|---|---|---|
+| YouTube | 1 hour | Does not expire |
+| Kick | 2 hours | 30 days, sliding |
+
+**The tools refresh automatically.** If a call comes back `401`, the
+tool refreshes the token with the refresh token, saves it, and retries.
+You do not need to re-authorize.
 
 ```bash
-./tools/kick-token.sh
+./tools/stream-meta.sh --check
 ```
 
-Re-running the helper replaces the token in place and backs up the config
-first. The writer preserves comments, key order, and file mode.
+That refreshes both if either has expired.
+
+You only need the browser flow again when:
+
+- the **refresh token** is revoked (you changed the OAuth app's
+  password, or revoked access in your Google/Kick account settings)
+- you never ran the helper in the first place
+- the refresh token itself has expired (Kick's is 30 days)
+
+Re-running the helper replaces the token in place and backs up the
+config first. The writer preserves comments, key order, and file mode,
+and keeps only the 5 most recent backups.
+
+### Verifying the refresh path
+
+```bash
+cd tools
+./test-write-all.sh
+```
+
+The check also exercises the refresh: an expired YouTube token reads as
+`401`, the tool refreshes it, and the read succeeds.
 
 ---
 

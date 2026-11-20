@@ -371,6 +371,38 @@ def kick_set_game(cfg, headers, game_name):
 # YouTube
 # ---------------------------------------------------------------------------
 
+def youtube_refresh(cfg):
+    """Refresh an expired YouTube access token using the refresh token.
+
+    YouTube access tokens last 1 hour. The refresh token does not
+    expire, so this makes the setup a one-time browser flow rather than
+    an hourly one. Returns (ok, message).
+    """
+    rt = cfg.get("YT_REFRESH_TOKEN", "")
+    cid = cfg.get("YT_CLIENT_ID", "")
+    secret = cfg.get("YT_CLIENT_SECRET", "")
+    if not rt or not cid or not secret:
+        return False, ("need YT_REFRESH_TOKEN, YT_CLIENT_ID and "
+                       "YT_CLIENT_SECRET to refresh")
+
+    body = {
+        "grant_type": "refresh_token",
+        "client_id": cid,
+        "client_secret": secret,
+        "refresh_token": rt,
+    }
+    status, data = _request_form("POST", "https://oauth2.googleapis.com/token",
+                                  body, timeout=20)
+    if status == 200 and isinstance(data, dict) and data.get("access_token"):
+        new_tok = data["access_token"]
+        _save_config_value("YT_TOKEN", new_tok)
+        if data.get("refresh_token"):
+            _save_config_value("YT_REFRESH_TOKEN", data["refresh_token"])
+        return True, (f"token refreshed (valid {data.get('expires_in')}s), "
+                      f"saved to {CONFIG}")
+    return False, f"HTTP {status}: {data}"
+
+
 def kick_refresh(cfg, headers):
     """Refresh an expired Kick access token using the refresh token.
 
@@ -609,6 +641,15 @@ def main():
                     print(f"  {YELLOW}kick{NC}: no credentials in {CONFIG}")
                     continue
                 cur, err = kick_current(cfg, h)
+                # Kick access tokens live 2 hours. The refresh token
+                # lives 30 days on a sliding window, so refresh once and
+                # retry before reporting a failure.
+                if err and "401" in err:
+                    good2, r2 = kick_refresh(cfg, h)
+                    if good2:
+                        h = kick_headers(cfg)
+                        cur, err = kick_current(cfg, h)
+                        err = f"{r2}" if err is None else err
                 if err:
                     print(f"  {RED}kick{NC}: {err}")
                     continue
@@ -619,6 +660,16 @@ def main():
                     print(f"  {YELLOW}youtube{NC}: no credentials in {CONFIG}")
                     continue
                 cur, err = youtube_current(cfg, h)
+                # An expired token reads as "no broadcast" or a 401.
+                # The refresh token does not expire, so refresh once and
+                # retry before reporting a failure.
+                if err and ("401" in err or "Invalid" in err or
+                            "UNAUTHENTICATED" in err):
+                    good2, r2 = youtube_refresh(cfg)
+                    if good2:
+                        h = youtube_headers(cfg)
+                        cur, err = youtube_current(cfg, h)
+                        err = f"{r2}" if err is None else err
                 if err:
                     print(f"  {RED}youtube{NC}: {err}")
                     continue
@@ -755,8 +806,18 @@ def main():
                         raise RuntimeError(r)
                     print(f"  {GREEN}✓{NC} {p:8} {r}")
             elif p == "youtube":
+                # YouTube access tokens live 1 hour. If the first call
+                # comes back 401, refresh once using the refresh token
+                # (which does not expire) before giving up.
                 if title:
                     good, r = youtube_set(cfg, h, title, cfg.get("YT_CATEGORY_ID"))
+                    if not good and "401" in r:
+                        good2, r2 = youtube_refresh(cfg)
+                        if good2:
+                            h = youtube_headers(cfg)
+                            good, r = youtube_set(cfg, h, title,
+                                                 cfg.get("YT_CATEGORY_ID"))
+                            r = f"{r2}; {r}"
                     if not good:
                         raise RuntimeError(r)
                     print(f"  {GREEN}✓{NC} {p:8} {r}")
