@@ -22,3 +22,15 @@ auto.key
 
 # macOS.
 .DS_Store
+*.swp
+
+# Python bytecode and caches.
+__pycache__/
+*.py[cod]
+.mypy_cache/
+.pytest_cache/
+*.egg-info/
+
+# Local virtualenvs.
+.venv/
+venv/

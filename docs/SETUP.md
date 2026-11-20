@@ -92,12 +92,18 @@ Quick version:
 Put them in `stream-keys.env`:
 
 ```bash
-YT_LAND_KEY=xxxx-xxxx-xxxx-xxxx-xxxx
-YT_VERT_KEY=xxxx-xxxx-xxxx-xxxx-xxxx
-TWITCH_KEY=live_00000000_xxxxxxxxxxxxxxxxxxxxxxxxxxxx
-KICK_KEY=sk_us-west-2_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-IG_KEY=1193042257001228?s_bl=1&s_fbp=dfw5-3&...
+YT_LAND_KEY="xxxx-xxxx-xxxx-xxxx-xxxx"
+YT_VERT_KEY="xxxx-xxxx-xxxx-xxxx-xxxx"
+TWITCH_KEY="live_00000000_xxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+KICK_KEY="sk_us-west-2_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+IG_KEY="1193042257001228?s_bl=1&s_fbp=dfw5-3&..."
 ```
+
+**Always quote the values.** The scripts source this file with `.`, so
+the values are parsed as shell. An Instagram key contains `&`
+characters, and an unquoted `&` backgrounds the command and silently
+drops the variable — which looks like a *missing* key rather than a
+quoting bug.
 
 **Check:**
 

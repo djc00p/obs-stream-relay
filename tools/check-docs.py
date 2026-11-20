@@ -150,6 +150,38 @@ def main():
         for key in required:
             check(f"{name} has {key}", key in text, "key not present")
 
+    print("\nconfig example values are quoted:")
+    # The scripts source these files with `.`, so an unquoted value with
+    # shell metacharacters (Instagram's key has `&`) silently breaks.
+    for name in ("scripts/stream-keys.env.example",
+                 "scripts/stream-meta.env.example"):
+        p = os.path.join(root, name)
+        if not os.path.exists(p):
+            continue
+        with open(p) as f:
+            for i, line in enumerate(f, 1):
+                line = line.strip()
+                if not line or line.startswith("#") or "=" not in line:
+                    continue
+                key, _, value = line.partition("=")
+                if value == "":
+                    continue  # an empty value is fine
+                if value.startswith('"') and value.endswith('"'):
+                    continue
+                check(f"{name}:{i} {key} is quoted", False,
+                      f"value {value!r} is not quoted")
+
+    print("\ndocs tell users to quote the values:")
+    for doc in ("docs/SETUP.md", "docs/GET-KEYS.md"):
+        p = os.path.join(root, doc)
+        if not os.path.exists(p):
+            continue
+        with open(p) as f:
+            text = f.read()
+        check(f"{doc} warns about quoting",
+              "Always quote" in text or "always quote" in text,
+              "no quoting warning found")
+
     print()
     if failures:
         print(f"FAILED: {len(failures)} check(s)")

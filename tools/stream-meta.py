@@ -61,8 +61,10 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from proxy_http import request as _request
 from proxy_http import request_form as _request_form
 from value_guard import explain_bad_value
+from env_writer import set_values
 
-CONFIG = os.path.expanduser("~/Streaming-Relay/stream-meta.env")
+CONFIG = os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "stream-meta.env")
 API_TWITCH = "https://api.twitch.tv/helix"
 # Kick's API is NOT /api/v2 -- verified against api.kick.com/swagger/doc.yaml
 # on 2026-11-19. The real paths are /public/v1/... and /public/v2/...
@@ -403,28 +405,17 @@ def kick_refresh(cfg, headers):
 
 
 def _save_config_value(key, value):
-    """Update a single key in the config file, preserving everything else."""
+    """Update a single key in the config file, preserving everything else.
+
+    Delegates to env_writer.set_values so there is ONE implementation of
+    the credential-file write. The earlier local copy of this logic did
+    not create the temp file with mode 600, so the credentials were
+    briefly world-readable between the write and the replace.
+    """
     if not os.path.exists(CONFIG):
         return False
-    with open(CONFIG) as f:
-        lines = f.readlines()
-    out = []
-    found = False
-    for line in lines:
-        stripped = line.strip()
-        if stripped.startswith(f"{key}="):
-            out.append(f'{key}="{value}"\n')
-            found = True
-        else:
-            out.append(line)
-    if not found:
-        out.append(f'{key}="{value}"\n')
-    tmp = CONFIG + ".tmp"
-    with open(tmp, "w") as f:
-        f.writelines(out)
-    os.replace(tmp, CONFIG)
-    os.chmod(CONFIG, 0o600)
-    return True
+    ok, _msg = set_values(CONFIG, {key: value})
+    return ok
 
 
 def youtube_headers(cfg):

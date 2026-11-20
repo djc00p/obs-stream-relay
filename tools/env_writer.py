@@ -18,7 +18,37 @@ import os
 import shutil
 import time
 
-CONFIG = os.path.expanduser("~/Streaming-Relay/stream-meta.env")
+CONFIG = os.path.join(os.path.dirname(os.path.dirname(
+    os.path.abspath(__file__))), "stream-meta.env")
+
+# How many timestamped backups to keep. Every backup holds a full set
+# of credentials, so they should not pile up forever.
+MAX_BACKUPS = 5
+
+
+def _prune_backups(path, keep=MAX_BACKUPS):
+    """Delete the oldest backups, keeping the `keep` most recent.
+
+    Returns the number of files removed.
+    """
+    d = os.path.dirname(path) or "."
+    prefix = os.path.basename(path) + ".backup-"
+    try:
+        entries = [f for f in os.listdir(d) if f.startswith(prefix)]
+    except OSError:
+        return 0
+    if len(entries) <= keep:
+        return 0
+    # The names sort chronologically (YYYYMMDD-HHMMSS).
+    entries.sort()
+    removed = 0
+    for name in entries[:-keep]:
+        try:
+            os.unlink(os.path.join(d, name))
+            removed += 1
+        except OSError:
+            pass
+    return removed
 
 
 def _read_lines(path):
@@ -71,10 +101,27 @@ def set_values(path, values, make_backup=True):
     if make_backup and os.path.exists(path):
         backup = f"{path}.backup-{time.strftime('%Y%m%d-%H%M%S')}"
         shutil.copy2(path, backup)
+        # copy2 preserves the SOURCE mode. If the source was ever 644
+        # the backup -- which holds every credential -- would be
+        # world-readable. Force 600 on it.
+        os.chmod(backup, 0o600)
+        _prune_backups(path, MAX_BACKUPS)
 
     tmp = f"{path}.tmp"
-    with open(tmp, "w") as f:
-        f.writelines(out)
+    # Create the temp file with 600 from the start. The default umask
+    # would leave the credentials world-readable in the window between
+    # the write and the replace below.
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    try:
+        with os.fdopen(fd, "w") as f:
+            f.writelines(out)
+    except Exception:
+        # Do not leave a stray temp file with credentials in it.
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
     os.replace(tmp, path)
     os.chmod(path, 0o600)
 
