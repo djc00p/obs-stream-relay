@@ -14,7 +14,25 @@
 # Usage: rtmp-probe.sh <name> <url> <key>
 
 set -uo pipefail
+
+# Require all three arguments. Without this, `set -u` aborts on an
+# unbound $1 -- but a partial invocation (say, a name and a URL but no
+# key) would build a malformed ingest URL and PROBE A REAL PLATFORM
+# with it. This script sends actual RTMP connect/publish attempts, so
+# it must never fire with arguments it was not given.
+if [ "$#" -lt 3 ]; then
+  echo "usage: rtmp-probe.sh <name> <url> <key>" >&2
+  echo "  (this sends real RTMP publish attempts -- all three are required)" >&2
+  exit 2
+fi
+
 NAME="$1"; URL="$2"; KEY="$3"
+
+if [ -z "$URL" ] || [ -z "$KEY" ]; then
+  echo "error: url and key must not be empty." >&2
+  exit 2
+fi
+
 FULL="${URL}/${KEY}"
 
 echo "--- $NAME ---"
