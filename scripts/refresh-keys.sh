@@ -90,7 +90,7 @@ probe() {
   log="$(ffmpeg -hide_banner -loglevel info \
           -f lavfi -i "color=c=black:s=320x240:d=0.3:r=5" \
           -c:v libx264 -preset ultrafast -t 0.3 \
-          -f flv "$url/$key" 2>&1)"
+          -f flv "${url%/}/$key" 2>&1)"
 
   if printf '%s' "$log" | grep -q "Lsize="; then
     PROBE_DETAIL="handshake accepted"

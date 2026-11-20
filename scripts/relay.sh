@@ -95,6 +95,13 @@ for line in sys.stdin:
     if not line.strip():
         continue
     url,_,key=line.partition("\t")
+    # A trailing slash on the base URL leaves an EMPTY path segment
+    # before the key: "rtmps://host/rtmp/#KEY" makes MediaMTX publish
+    # to "/rtmp//KEY" instead of "/rtmp/KEY". Verified against
+    # MediaMTX v1.21.4 -- it logs the base URL with the trailing
+    # slash, and the platform rejects the resulting double slash as
+    # "Invalid URL". Strip it.
+    url=url.rstrip("/")
     dest=url + ("#"+key if key else "")
     fwd.append({"dest":dest})
 print(json.dumps({"forward":fwd}))

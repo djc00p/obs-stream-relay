@@ -247,7 +247,7 @@ probe_platform() {
   log="$(ffmpeg -hide_banner -loglevel info \
           -f lavfi -i "color=c=black:s=320x240:d=0.2:r=5" \
           -c:v libx264 -preset ultrafast -t 0.2 \
-          -f flv "$url/$key" 2>&1)"
+          -f flv "${url%/}/$key" 2>&1)"
 
   # Rejected: the platform closed the connection during the handshake.
   if printf '%s' "$log" | grep -q "Error opening output"; then

@@ -33,7 +33,9 @@ if [ -z "$URL" ] || [ -z "$KEY" ]; then
   exit 2
 fi
 
-FULL="${URL}/${KEY}"
+# A trailing slash on the base URL would produce a double slash
+# ("/rtmp//KEY"), which the platform rejects as an invalid URL.
+FULL="${URL%/}/${KEY}"
 
 echo "--- $NAME ---"
 
