@@ -199,11 +199,12 @@ def main():
         params = urllib.parse.parse_qs(parsed.query)
         code = (params.get("code") or [None])[0]
         got_state = (params.get("state") or [""])[0]
-        if got_state and got_state != state:
+        if got_state != state:
             print("\n✗ State mismatch -- this URL is from a different "
                   "authorization attempt.")
             print("  expected state: " + state)
-            print("  got state     : " + got_state)
+            print("  got state     : " + (got_state or "(missing)"))
+            print("  (state protects against CSRF, so we won't continue)")
             return 1
     else:
         code = pasted

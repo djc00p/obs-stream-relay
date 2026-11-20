@@ -20,6 +20,7 @@ import hashlib
 import json
 import os
 import re
+import secrets
 import subprocess
 import sys
 import urllib.parse
@@ -73,17 +74,28 @@ def main():
         print(f"error: need --client-id, or TWITCH_CLIENT_ID in {CONFIG}")
         return 1
 
+    # A state parameter protects against CSRF: without it, a crafted
+    # URL carrying an attacker's token could be pasted into this tool
+    # and stored as if it were the operator's own.
+    #
+    # Twitch's implicit flow has no PKCE, so state is the ONLY
+    # protection here -- unlike the Kick and YouTube helpers, where the
+    # PKCE verifier does that job.
+    state = secrets.token_urlsafe(16)
+
     params = {
         "client_id": args.client_id,
         "redirect_uri": "https://localhost",
         "response_type": "token",
         "scope": args.scope,
+        "state": state,
     }
     url = f"{AUTH_URL}?{urllib.parse.urlencode(params)}"
 
     print("Open this URL, log in as yourself, and click Authorize:\n")
     print(f"  {url}\n")
-    print("You'll land on a page like https://localhost/#access_token=XXXX")
+    print("You'll land on a page like")
+    print("  https://localhost/#access_token=XXXX&state=YYYY")
     print("Copy the WHOLE address bar URL and paste it below.")
     print("(Ctrl+C to cancel)\n")
 
@@ -115,9 +127,22 @@ def main():
                 print(f"       {frag['error_description'][0]}")
             return 1
 
+        # Verify the state. A MISSING state is rejected too -- this
+        # flow has no PKCE, so state is the only CSRF protection.
+        got_state = (frag.get("state") or [""])[0]
+        if got_state != state:
+            print("\nerror: state mismatch -- this URL is not from this run.")
+            print(f"       expected state: {state}")
+            print(f"       got state     : {got_state or '(missing)'}")
+            print("       (state protects against CSRF, so we won't continue)")
+            return 1
+
     # Also handle the case where they pasted just the token value.
     if not token and re.fullmatch(r"[A-Za-z0-9_\-]{20,}", pasted):
-        token = pasted
+        print("\nerror: that is a bare token, not the redirect URL.")
+        print("       Paste the whole address-bar URL so the state can be")
+        print("       checked -- a bare token has no state to verify.")
+        return 1
 
     # Or a full code (authorization code flow) -- not what we want, but
     # report it clearly instead of failing cryptically.

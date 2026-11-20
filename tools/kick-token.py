@@ -158,8 +158,10 @@ def main():
         print("        in the # fragment -- Kick uses ?code= instead.)")
         return 1
 
-    if got_state and got_state != state:
+    if got_state != state:
         print("\nerror: state mismatch -- this may not be the URL from this run.")
+        print(f"       expected state: {state}")
+        print(f"       got state     : {got_state or '(missing)'}")
         print("       (state protects against CSRF, so we won't continue)")
         return 1
 

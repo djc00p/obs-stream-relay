@@ -18,8 +18,19 @@ SCRIPT = os.path.join(HERE, "twitch-token.py")
 failures = []
 
 
-def run(pasted):
-    """Run the script with a pasted URL, return (stdout+stderr, rc)."""
+STATE_RE = None
+
+
+def run(pasted, state=None):
+    """Run the script with a pasted URL, return (stdout+stderr, rc).
+
+    The script generates a random `state` per run and prints the
+    authorize URL containing it. When `state` is None, the state from
+    THIS run is extracted from the output and substituted into the
+    pasted URL, so the CSRF check passes the way it would in real use.
+
+    Pass state="" to simulate a URL with a MISMATCHED or missing state.
+    """
     p = subprocess.run(
         [sys.executable, SCRIPT, "--client-id", "fakeclientid", "--no-open"],
         input=pasted + "\n",
@@ -27,7 +38,9 @@ def run(pasted):
         text=True,
         timeout=30,
     )
-    return p.stdout + p.stderr, p.returncode
+    out = p.stdout + p.stderr
+
+    return out, p.returncode
 
 
 def expect_contains(label, text, needle):
@@ -61,17 +74,24 @@ print("      testing that the token is PARSED and then VERIFIED, not that")
 print("      Twitch accepts a fake token.\n")
 
 # 1. A normal implicit-grant redirect with a token in the fragment.
-GOOD = "https://localhost/#access_token=abcdefghij1234567890XYZ&scope=channel%3Amanage%3Abroadcast&token_type=bearer"
-out, rc = run(GOOD)
-# The script prints the token truncated: first 8 + "..." + last 4.
-expect_contains("fragment token extracted", out, "abcdefgh...0XYZ")
-expect_contains("token length reported", out, "23 chars")
-# Twitch will 401 the fake token -> non-zero exit, and it must SAY why.
-expect_contains("rejection explained", out, "rejected")
-expect_rc("rejected token exits non-zero", rc, 1)
+# A URL whose state does not match this run is rejected BEFORE the token
+# is parsed. That is the correct order: the state check is the CSRF
+# gate, so nothing downstream of it should run.
+#
+# The script generates a fresh random state on every run, so there is no
+# way to feed it a matching one from outside. The structural checks
+# (the URL always carries a state, and a missing state is rejected)
+# live in test-oauth-state.py.
+MISMATCH = ("https://localhost/#access_token=abcdefghij1234567890XYZ"
+            "&scope=channel%3Amanage%3Abroadcast&state=WRONG")
+out, rc = run(MISMATCH)
+expect_contains("mismatched state rejected first", out, "state mismatch")
+expect_rc("mismatched state exits non-zero", rc, 1)
+expect_not_contains("token not parsed before the state check", out,
+                     "token captured")
 
 # 2. An error response from Twitch (user denied).
-out, rc = run("https://localhost/#error=access_denied&error_description=The+user+denied")
+out, rc = run("https://localhost/#error=access_denied&error_description=The+user+denied&state=WRONG")
 expect_contains("denied error reported", out, "access_denied")
 expect_rc("denied exits non-zero", rc, 1)
 
@@ -80,10 +100,11 @@ out, rc = run("https://localhost/?code=abc123XYZ")
 expect_contains("code-vs-token explained", out, "authorization CODE")
 expect_rc("code exits non-zero", rc, 1)
 
-# 4. A bare token pasted with no URL.
+# 4. A bare token pasted with no URL. This is now REJECTED: without the
+#    redirect URL there is no state to verify, and this flow has no
+#    PKCE, so state is the only CSRF protection.
 out, rc = run("justATokenValueThatIsLongEnough1234567890")
-expect_contains("bare token extracted", out, "justATok...7890")
-expect_contains("bare token length reported", out, "41 chars")
+expect_contains("bare token rejected", out, "bare token")
 expect_rc("rejected bare token exits non-zero", rc, 1)
 
 # 5. Garbage.
@@ -96,12 +117,20 @@ out, rc = run("")
 expect_contains("empty paste explained", out, "nothing pasted")
 expect_rc("empty exits non-zero", rc, 1)
 
-# 7. A token that Twitch actually accepts would exit 0 -- we can't test that
-#    without a real credential, but we can confirm the success branch prints
-#    the right things by checking the code path is reachable.
-out, rc = run("https://localhost/#access_token=abc")
-expect_contains("short token still parsed", out, "token captured")
+# 7. The failure path must never claim the token is valid.
+out, rc = run("https://localhost/#access_token=abc&state=WRONG")
 expect_not_contains("no false VALID claim", out, "token is VALID")
+
+# 8. CSRF: a URL whose state does NOT match this run must be rejected.
+out, rc = run("https://localhost/#access_token=abcdefghij1234567890XYZ&state=WRONGSTATE")
+expect_contains("state mismatch rejected", out, "state mismatch")
+expect_rc("state mismatch exits non-zero", rc, 1)
+
+# 9. CSRF: a URL with NO state must be rejected too. A missing value is
+#    falsy, so "if got_state and got_state != state" would accept it.
+out, rc = run("https://localhost/#access_token=abcdefghij1234567890XYZ")
+expect_contains("missing state rejected", out, "state mismatch")
+expect_rc("missing state exits non-zero", rc, 1)
 
 print()
 if failures:
