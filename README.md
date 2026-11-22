@@ -1,5 +1,11 @@
 # OBS Stream Relay
 
+[![MediaMTX](https://img.shields.io/badge/MediaMTX-Relay-blue?style=flat-square)](https://github.com/bluenviron/mediamtx)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green?style=flat-square)](LICENSE)
+[![macOS](https://img.shields.io/badge/macOS-arm64%20%7C%20x86_64-lightgrey?style=flat-square)](https://www.apple.com/macos/)
+[![Shell](https://img.shields.io/badge/shell-bash%20%2B%20python3-yellowgreen?style=flat-square)](https://www.gnu.org/software/bash/)
+[![No Deps](https://img.shields.io/badge/python_deps-none-brightgreen?style=flat-square)](https://docs.python.org/3/library/venv.html)
+
 Run one OBS scene to many platforms at once — landscape and portrait side by
 side — without paying for a distribution service.
 
@@ -18,6 +24,17 @@ platform's key whenever it expires without restarting the stream.
                          │                Instagram     │
                          └──────────────────────────────┘
 ```
+
+## Why bother
+
+Distribution services cost money per month and usually only handle one
+output. If you want a landscape stream on Twitch and a vertical one on
+Instagram at the same time, the DIY version is: OBS → local MediaMTX → each
+platform's ingest URL.
+
+You get to see exactly what is connected, swap expired keys without
+dropping the stream, and test every credential before you go live. The
+trade is that you set up the OBS outputs yourself.
 
 ## What it does
 
@@ -147,9 +164,8 @@ wrapper, it finds its own dependencies.
 | `tools/yt-channel-id.sh` | Resolve a handle to a `UC...` channel id |
 
 The token helpers **write the config file themselves**. Do not copy a
-token by hand — printing a value for a human to paste is how an
-authorization code ends up where an access token belongs, and the two
-look the same.
+token by hand — an OAuth authorization code and an access token look
+nearly identical, and pasting the wrong one produces a confusing 401.
 
 ### Diagnostics and verification
 
@@ -246,7 +262,8 @@ Start with:
 ./scripts/dry-run.sh --all
 ```
 
-It names the problem rather than saying "something failed". See
+It tells you which credential failed and why, instead of a generic
+"something went wrong". See
 [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) for the full catalogue.
 
 ## License

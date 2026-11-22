@@ -8,8 +8,8 @@ Start here:
 ./scripts/dry-run.sh --all
 ```
 
-It names the problem instead of saying "something failed". This document
-explains what each message means.
+It tells you which credential failed and why, instead of a generic
+"something went wrong". This document explains what each message means.
 
 ---
 
